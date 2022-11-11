@@ -41,7 +41,9 @@ app.post("/participants", async (req, res) => {
 
   try {
     const participants = await participantsCollection.find().toArray();
-    const isAlreadyRegistered = participants.find( e => req.body.name === e.name);
+    const isAlreadyRegistered = participants.find(
+      (e) => req.body.name === e.name
+    );
     if (isAlreadyRegistered) {
       res.sendStatus(409);
       return;
@@ -60,6 +62,16 @@ app.post("/participants", async (req, res) => {
     res.sendStatus(201);
   } catch (err) {
     console.log(err);
+  }
+});
+
+app.get("/participants", async (req, res) => {
+  try {
+    const participantsCollection = db.collection("participants");
+    res.send(await participantsCollection.find().toArray());
+  } catch (err) {
+    console.log(err);
+    res.send("oi");
   }
 });
 
