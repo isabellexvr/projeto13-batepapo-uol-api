@@ -125,16 +125,43 @@ app.get("/messages", async (req, res) => {
 });
 
 app.post("/status", async (req, res) => {
-  const {user} = req.headers;
+  const { user } = req.headers;
   const participantExists = await participantsCollection.findOne({
     name: user,
   });
-  if (!participantExists){
+  if (!participantExists) {
     return res.status(404).send("Participante não cadastrado!");
   }
-  res.send({...participantExists, lastStatus: Date.now()})
+  res.send({ ...participantExists, lastStatus: Date.now() });
 });
+
+setInterval(deleteInatives, 15000);
+
+async function deleteInatives() {
+  const allUsers = await participantsCollection.find().toArray();
+
+  allUsers.forEach(async (u) => {
+    if (!u.name){
+      return;
+    }
+    if (u.lastStatus <= Date.now() - 10) {
+      await participantsCollection.deleteOne({
+        _id: ObjectId(u._id),
+      });
+      await messageCollection.insertOne({
+        from: u.name,
+        to: "Todos",
+        text: "sai da sala...",
+        type: "status",
+        time: dayjs().format("HH:mm:ss"),
+      });
+    }
+  });
+}
 
 app.listen(5000, () => {
   console.log("Server is running in port 5000");
 });
+
+// ainda falta usar o try e catch
+
