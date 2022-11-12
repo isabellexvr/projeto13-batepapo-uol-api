@@ -70,7 +70,7 @@ app.get("/participants", async (req, res) => {
     res.send(await participantsCollection.find().toArray());
   } catch (err) {
     console.log(err);
-    res.status(422).send("Não foi possível retornar a lista de participantes.");
+    res.status(422).send("Não foi possível retornar a lista de participantes. Consulte os logs.");
   }
 });
 
@@ -79,60 +79,77 @@ app.post("/messages", async (req, res) => {
 
   const { from } = req.headers;
 
-  const participantExists = await participantsCollection.findOne({
-    name: from,
-  });
+  try {
+    const participantExists = await participantsCollection.findOne({
+      name: from,
+    });
 
-  if (!participantExists) {
-    return res.status(422).send("Participante não existe!");
+    if (!participantExists) {
+      return res.status(422).send("Participante não existe!");
+    }
+
+    const messageSchema = joi.object({
+      to: joi.string().required(),
+      text: joi.string().required(),
+      type: joi.string().valid("message", "private_message").required(),
+    });
+
+    const { error } = messageSchema.validate(req.body);
+
+    if (error) {
+      return res.status(422).send("Erro na composição da mensagem!");
+    }
+
+    await messageCollection.insertOne({
+      to,
+      text,
+      type,
+      from,
+      time: dayjs().format("HH:mm:ss"),
+    });
+    res.sendStatus(201);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(400);
   }
-
-  const messageSchema = joi.object({
-    to: joi.string().required(),
-    text: joi.string().required(),
-    type: joi.string().valid("message", "private_message").required(),
-  });
-
-  const { error } = messageSchema.validate(req.body);
-
-  if (error) {
-    return res.status(422).send("Erro na composição da mensagem!");
-  }
-
-  await messageCollection.insertOne({
-    to,
-    text,
-    type,
-    from,
-    time: dayjs().format("HH:mm:ss"),
-  });
-  res.sendStatus(201);
 });
 
 app.get("/messages", async (req, res) => {
   const limit = req.query.limit;
   const { user } = req.headers;
-  const messages = await messageCollection.find().toArray();
-  const filteredMessages = messages.map((m) => {
-    if (m.from === user || m.to === user || m.to === "Todos") {
-      return m;
+
+  try {
+    const messages = await messageCollection.find().toArray();
+    const filteredMessages = messages.map((m) => {
+      if (m.from === user || m.to === user || m.to === "Todos") {
+        return m;
+      }
+    });
+    if (!limit) {
+      return res.send(filteredMessages.reverse());
     }
-  });
-  if (!limit) {
-    return res.send(filteredMessages.reverse());
+    res.send(filteredMessages.reverse().slice(limit));
+  } catch (err) {
+    console.log(err);
+    res.status(422).send("Não foi possível retornar a lista de mensagens. Consulte os logs.");
   }
-  res.send(filteredMessages.reverse().slice(limit));
 });
 
 app.post("/status", async (req, res) => {
   const { user } = req.headers;
-  const participantExists = await participantsCollection.findOne({
-    name: user,
-  });
-  if (!participantExists) {
-    return res.status(404).send("Participante não cadastrado!");
+
+  try{
+    const participantExists = await participantsCollection.findOne({
+      name: user,
+    });
+    if (!participantExists) {
+      return res.status(404).send("Participante não cadastrado!");
+    }
+    res.send({ ...participantExists, lastStatus: Date.now() });
+  } catch (err){
+    console.log(err);
+    res.send("Não foi possível mostrar o status desse usuário. Consulte os logs.")
   }
-  res.send({ ...participantExists, lastStatus: Date.now() });
 });
 
 setInterval(deleteInatives, 15000);
@@ -141,7 +158,7 @@ async function deleteInatives() {
   const allUsers = await participantsCollection.find().toArray();
 
   allUsers.forEach(async (u) => {
-    if (!u.name){
+    if (!u.name) {
       return;
     }
     if (u.lastStatus <= Date.now() - 10) {
@@ -162,6 +179,3 @@ async function deleteInatives() {
 app.listen(5000, () => {
   console.log("Server is running in port 5000");
 });
-
-// ainda falta usar o try e catch
-
