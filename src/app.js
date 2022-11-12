@@ -79,16 +79,18 @@ app.post("/messages", async (req, res) => {
 
   const { from } = req.headers;
 
-  const participantExists = await participantsCollection.findOne({name: from})
+  const participantExists = await participantsCollection.findOne({
+    name: from,
+  });
 
-  if (!participantExists){
+  if (!participantExists) {
     return res.status(422).send("Participante não existe!");
   }
 
   const messageSchema = joi.object({
     to: joi.string().required(),
     text: joi.string().required(),
-    type: joi.string().valid("message", "private_message").required()
+    type: joi.string().valid("message", "private_message").required(),
   });
 
   const { error } = messageSchema.validate(req.body);
@@ -105,6 +107,21 @@ app.post("/messages", async (req, res) => {
     time: dayjs().format("HH:mm:ss"),
   });
   res.sendStatus(201);
+});
+
+app.get("/messages", async (req, res) => {
+  const limit = req.query.limit;
+  const { user } = req.headers;
+  const messages = await messageCollection.find().toArray();
+  const filteredMessages = messages.map((m) => {
+    if (m.from === user || m.to === user || m.to === "Todos") {
+      return m;
+    }
+  });
+  if (!limit) {
+    return res.send(filteredMessages.reverse());
+  }
+  res.send(filteredMessages.reverse().slice(limit));
 });
 
 app.listen(5000, () => {
