@@ -5,8 +5,6 @@ import dotenv from "dotenv";
 import joi from "joi";
 import dayjs from "dayjs";
 
-//mandar objeto sem {}
-
 dayjs.locale("br");
 dotenv.config();
 
@@ -27,6 +25,7 @@ const participantsCollection = db.collection("participants");
 const messageCollection = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
+  
   const promptSchema = joi.object({
     name: joi.string().required(),
   });
