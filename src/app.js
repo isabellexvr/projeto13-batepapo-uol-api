@@ -124,6 +124,17 @@ app.get("/messages", async (req, res) => {
   res.send(filteredMessages.reverse().slice(limit));
 });
 
+app.post("/status", async (req, res) => {
+  const {user} = req.headers;
+  const participantExists = await participantsCollection.findOne({
+    name: user,
+  });
+  if (!participantExists){
+    return res.status(404).send("Participante não cadastrado!");
+  }
+  res.send({...participantExists, lastStatus: Date.now()})
+});
+
 app.listen(5000, () => {
   console.log("Server is running in port 5000");
 });
