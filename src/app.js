@@ -81,8 +81,6 @@ app.post("/messages", async (req, res) => {
 
   const { user } = req.headers;
 
-  console.log(user);
-
   try {
     const participantExists = await participantsCollection.findOne({
       name: user,
