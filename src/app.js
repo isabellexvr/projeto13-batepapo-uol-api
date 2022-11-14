@@ -144,7 +144,8 @@ app.post("/status", async (req, res) => {
     if (!participantExists) {
       return res.status(404).send("Participante não cadastrado!");
     }
-    res.send({ ...participantExists, lastStatus: Date.now() });
+    await participantsCollection.updateOne({_id: ObjectId(participantExists._id)}, {lastStatus: Date.now()});
+    res.sendStatus(200);
   } catch (err){
     console.log(err);
     res.send("Não foi possível mostrar o status desse usuário. Consulte os logs.")
