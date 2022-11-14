@@ -25,7 +25,6 @@ const participantsCollection = db.collection("participants");
 const messageCollection = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
-  
   const promptSchema = joi.object({
     name: joi.string().required(),
   });
@@ -69,18 +68,24 @@ app.get("/participants", async (req, res) => {
     res.send(await participantsCollection.find().toArray());
   } catch (err) {
     console.log(err);
-    res.status(422).send("Não foi possível retornar a lista de participantes. Consulte os logs.");
+    res
+      .status(422)
+      .send(
+        "Não foi possível retornar a lista de participantes. Consulte os logs."
+      );
   }
 });
 
 app.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
 
-  const { from } = req.headers;
+  const { user } = req.headers;
+
+  console.log(user);
 
   try {
     const participantExists = await participantsCollection.findOne({
-      name: from,
+      name: user,
     });
 
     if (!participantExists) {
@@ -90,7 +95,7 @@ app.post("/messages", async (req, res) => {
     const messageSchema = joi.object({
       to: joi.string().required(),
       text: joi.string().required(),
-      type: joi.string().valid("message", "private_message").required(),
+      type: joi.string(),
     });
 
     const { error } = messageSchema.validate(req.body);
@@ -100,10 +105,10 @@ app.post("/messages", async (req, res) => {
     }
 
     await messageCollection.insertOne({
-      to,
-      text,
-      type,
-      from,
+      to: to,
+      text: text,
+      type: type,
+      from: user,
       time: dayjs().format("HH:mm:ss"),
     });
     res.sendStatus(201);
@@ -119,36 +124,49 @@ app.get("/messages", async (req, res) => {
 
   try {
     const messages = await messageCollection.find().toArray();
-    const filteredMessages = messages.map((m) => {
-      if (m.from === user || m.to === user || m.to === "Todos") {
+    const filteredMessages = messages.filter((m) => {
+      if (
+        m.type === "message" ||
+        m.type === "status" ||
+        (m.type === "private_message" && (m.to === user || m.from === user))
+      ) {
         return m;
       }
     });
     if (!limit) {
-      return res.send(filteredMessages.reverse());
+      return res.send(filteredMessages);
     }
-    res.send(filteredMessages.reverse().slice(limit));
+    res.send(filteredMessages);
   } catch (err) {
     console.log(err);
-    res.status(422).send("Não foi possível retornar a lista de mensagens. Consulte os logs.");
+    res
+      .status(422)
+      .send(
+        "Não foi possível retornar a lista de mensagens. Consulte os logs."
+      );
   }
 });
 
 app.post("/status", async (req, res) => {
   const { user } = req.headers;
 
-  try{
+  try {
     const participantExists = await participantsCollection.findOne({
       name: user,
     });
     if (!participantExists) {
       return res.status(404).send("Participante não cadastrado!");
     }
-    await participantsCollection.updateOne({_id: ObjectId(participantExists._id)}, {lastStatus: Date.now()});
+    await participantsCollection.updateOne(
+      { _id: ObjectId(participantExists._id) },
+      { $set: { lastStatus: Date.now() } }
+    );
     res.sendStatus(200);
-  } catch (err){
+  } catch (err) {
     console.log(err);
-    res.send("Não foi possível mostrar o status desse usuário. Consulte os logs.")
+    res.send(
+      "Não foi possível mostrar o status desse usuário. Consulte os logs."
+    );
   }
 });
 
@@ -161,7 +179,7 @@ async function deleteInatives() {
     if (!u.name) {
       return;
     }
-    if (u.lastStatus <= Date.now() - 10) {
+    if (u.lastStatus <= Date.now() - 10000) {
       await participantsCollection.deleteOne({
         _id: ObjectId(u._id),
       });
